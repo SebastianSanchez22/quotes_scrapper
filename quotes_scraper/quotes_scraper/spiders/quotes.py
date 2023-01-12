@@ -4,6 +4,7 @@ import scrapy
 # Citas = //span[@class="text" and @itemprop="text"]/text()
 # Top ten tags = //div[contains(@class, "tags-box")]//span[@class="tag-item"]/a/text()
 # Next page button = //li[@class="next"]/a/@href
+# Author = //small[@class="author" and @itemprop="author"]/text()
 
 class QuotesSpider(scrapy.Spider):
     name = 'quotes'
@@ -23,8 +24,9 @@ class QuotesSpider(scrapy.Spider):
 
     def parse_only_quotes(self, response, **kwargs):
         if kwargs:
-            kwargs['quotes'].extend(response.xpath('//span[@class="text" and @itemprop="text"]/text()').getall())
-
+            quotes_and_authors = self.get_quote_and_author(response)
+            kwargs['quotes_and_authors'].extend(quotes_and_authors)
+            
         next_page_button_link = response.xpath('//li[@class="next"]/a/@href').get()
     
         if next_page_button_link:
@@ -35,7 +37,7 @@ class QuotesSpider(scrapy.Spider):
 
     def parse(self, response):
         title = response.xpath('//h1/a/text()').get()
-        quotes = response.xpath('//span[@class="text" and @itemprop="text"]/text()').getall()
+        quotes_and_authors = self.get_quote_and_author(response)
         top_tags = response.xpath('//div[contains(@class, "tags-box")]//span[@class="tag-item"]/a/text()').getall()
 
         top = getattr(self, 'top', None)
@@ -57,6 +59,11 @@ class QuotesSpider(scrapy.Spider):
 						# dejar la url absoluta y cambiar el resto) 
             # Este metodo posee un callback es decir un metodo que se ejecutara 
 						# automaticamente despues de haber cambiado de url.
-            yield response.follow(next_page_button_link, callback=self.parse_only_quotes, cb_kwargs={'quotes': quotes})
+            yield response.follow(next_page_button_link, callback=self.parse_only_quotes, cb_kwargs={'quotes_and_authors': quotes_and_authors})
+
+    def get_quote_and_author(self, response):
+        quotes = response.xpath('//span[@class="text" and @itemprop="text"]/text()').getall()
+        authors = response.xpath('//small[@class="author" and @itemprop="author"]/text()').getall()
+        return [({'quote':quote, 'author': author}) for quote,author in zip(quotes, authors)]
 
    
